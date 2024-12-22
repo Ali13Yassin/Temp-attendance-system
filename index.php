@@ -146,6 +146,7 @@ $attendees = readCSV();
             </tbody>
         </table>
     </div>
+    <div id="notification" class="notification"></div>
 
     <script>
         function searchAttendance() {
@@ -184,9 +185,20 @@ $attendees = readCSV();
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ attendee })
                 })
-                .then(response => response.json())
-                .then(data => console.log('Updated:', data.attendee.id))
-                .catch(error => console.error('Error:', error));
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    showNotification('Attendance updated successfully!', 'success');
+                    console.log('Updated:', data.attendee.id);
+                })
+                .catch(error => {
+                    showNotification('Error updating attendance. Please try again.', 'error');
+                    console.error('Error:', error);
+                });
             }
         });
 
@@ -210,6 +222,21 @@ $attendees = readCSV();
         eventSource.onerror = function () {
             console.error('Error connecting to the SSE server.');
         };
+
+        //Notification code
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+
+            // Hide the notification after 3 seconds
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+
+        
     </script>
 </body>
 </html>
