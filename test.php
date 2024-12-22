@@ -1,5 +1,10 @@
 <?php
-
+header('Connection: keep-alive');
+header('Cache-Control: no-cache');
+while (ob_get_level() > 0) {
+    ob_end_flush();
+}
+ob_implicit_flush(true);
 session_start();
 // CSV handling at top
 function readCSV() {
