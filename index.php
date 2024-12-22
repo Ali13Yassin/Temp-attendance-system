@@ -156,7 +156,7 @@ $attendees = readCSV();
                 const name = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
                 const studentId = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
 
-                if (name.includes(searchInput) || studentId.includes(searchInput)) {
+                if (name.includes(searchInput) || studentId.includes("23010" + searchInput)) {
                     row.style.display = '';
                 } else {
                     row.style.display = 'none';
