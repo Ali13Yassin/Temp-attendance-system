@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Update</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #121212, #1e1e1e); 
+            color: #f1f1f1; 
+            margin: 0;
+            padding: 0;
+        }
+    
+        header {
+            background-color: #212121; 
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-bottom: 5px solid #28a745; 
+        }
+    
+        h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+    
+        header img {
+            width: 80px; 
+            margin-bottom: 10px;
+        }
+    
+        .container {
+            max-width: 100%;
+            margin: 20px auto;
+            padding: 30px;
+            background-color: #2c2c2c; 
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            min-height: 70vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+    
+        h2 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #28a745; 
+            margin-bottom: 20px;
+            text-align: center;
+        }
+    
+        /* Divider style */
+        .divider {
+            border-top: 4px solid #28a745; 
+            margin: 30px 0;
+        }
+    
+        /* Table Style */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+    
+        th, td {
+            padding: 12px 20px;
+            text-align: center;
+            font-size: 1.1rem;
+            border-bottom: 2px solid #f1f1f1;
+        }
+    
+        th {
+            background-color: #333333; 
+            color: #f1f1f1;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+    
+        td {
+            background-color: #444444; 
+        }
+    
+        tr:nth-child(even) td {
+            background-color: #555555;
+        }
+    
+        tr:hover td {
+            background-color: #666666;
+            transition: background-color 0.3s ease;
+        }
+    
+        .checkbox-cell input {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+    
+        /* Button Style */
+        button {
+            padding: 15px 25px;
+            background-color: #28a745; 
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            width: 100%;
+            transition: background-color 0.3s ease;
+            margin-top: 30px;
+        }
+    
+        button:hover {
+            background-color: #218838;
+        }
+    
+        /* Dropdown & Input Style */
+        .form-group input,
+        .form-group select {
+            padding: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 15px;
+            background-color: #555555;
+            color: white;
+            font-size: 1.1rem;
+        }
+    
+        /* Improve Input alignment and styling */
+        .form-group input[type="text"] {
+            max-width: 400px;
+        }
+    
+        /* Search bar */
+        .search-bar {
+            width: 100%;
+            max-width: 400px;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            background-color: #444444;
+            color: white;
+            border: 1px solid #28a745;
+            font-size: 1rem;
+        }
+    
+        /* Responsive Styles */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+    
+            h2 {
+                font-size: 1.5rem;
+            }
+    
+            table, th, td {
+                padding: 10px;
+            }
+    
+            .form-group input,
+            .form-group select {
+                width: 100%;
+                margin-bottom: 15px;
+            }
+    
+            button {
+                width: 100%;
+            }
+    
+            .checkbox-cell input {
+                width: 20px;
+                height: 20px;
+            }
+        }
+    </style>
+    <body>
+        <header>
+            <h1>Update Attendance</h1>
+        </header>
+    
+        <div class="container">
+            <!-- Search Bar -->
+            <input type="text" id="search-bar" class="search-bar" placeholder="Search by Student ID or Name" onkeyup="searchAttendance()">
+    
+            <!-- Attendance Form at the top -->
+            <h2>Update Attendance</h2>
+            <form id="attendance-form">
+                <div class="form-group">
+                    <input type="text" id="id" placeholder="Student ID" required>
+                    <input type="text" id="name" placeholder="Student Name" required>
+                    <!-- Select Dropdown for Year -->
+                    <select id="year" required>
+                        <option value="" disabled selected>Select Year</option>
+                        <option value="Year 1">Year 1</option>
+                        <option value="Year 2">Year 2</option>
+                    </select>
+                    <button type="submit">Update Attendance</button>
+                </div>
+            </form>
+    
+            <!-- Divider Line -->
+            <div class="divider"></div>
+    
+            <!-- Attendance List -->
+            <h2>Attendance List</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Project Name</th>
+                        <th>Name</th>
+                        <th>Student ID</th>
+                        <th>Talk 1</th>
+                        <th>Talk 2</th>
+                    </tr>
+                </thead>
+                <tbody id="attendees-list">
+                    {% for attendee in attendees %}
+                        <tr class="attendance-row">
+                            <td>{{ attendee.project_name }}</td>
+                            <td>{{ attendee.name }}</td>
+                            <td>{{ attendee.id }}</td>
+                            <td class="checkbox-cell">
+                                <input type="checkbox" class="present-checkbox" data-id="{{ attendee.id }}" {% if attendee.present %}checked{% endif %}>
+                            </td>
+                            <td class="checkbox-cell">
+                                <input type="checkbox" class="late-checkbox" data-id="{{ attendee.id }}" {% if attendee.late %}checked{% endif %}>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    
+        <script>
+            function searchAttendance() {
+                const searchInput =  document.getElementById('search-bar').value.toLowerCase();
+                const rows = document.querySelectorAll('.attendance-row');
+    
+                rows.forEach(row => {
+                    const name = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
+                    const studentId = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
+    
+                    if (name.includes(searchInput) || studentId.includes(searchInput)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            }
+        </script>
+    </body>
+    
+    <script>
+        document.getElementById('attendance-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            const project_name = document.getElementById('project_name').value;
+            const name = document.getElementById('name').value;
+            const id = document.getElementById('id').value;
+            const present = document.getElementById('present').checked;
+            const late = document.getElementById('late').checked;
+
+            const attendee = {
+                project_name, name, id, present, late
+            };
+
+            fetch('/update_attendance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ attendees: [attendee] })
+            }).then(response => response.json())
+              .then(data => {
+                  alert(data.message);
+              });
+        });
+
+        document.getElementById('attendees-list').addEventListener('change', function(event) {
+            if (event.target.classList.contains('present-checkbox') || event.target.classList.contains('late-checkbox')) {
+                const id = event.target.dataset.id;
+                const attendees = [];
+
+                document.querySelectorAll('tr').forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length > 0) {
+                        const attendee = {
+                            project_name: cells[0].innerText, 
+                            name: cells[1].innerText,
+                            id : cells[2].innerText,
+                            present: cells[3].querySelector('input').checked,
+                            late: cells[4].querySelector('input').checked
+                            // writer.writerow(['project_name', 'name', 'ID', 'present', 'late'])
+                        };
+                        attendees.push(attendee);
+                    }
+                });
+
+                //Update attendance
+                fetch('/update_attendance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ attendees })
+                }).then(response => response.json())
+                  .then(data => {
+                      alert(data.message);
+                  });
+            }
+        });
+    </script>
+</body>
+</html>
