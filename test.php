@@ -1,16 +1,11 @@
 <?php
-header('Connection: keep-alive');
-header('Cache-Control: no-cache');
-while (ob_get_level() > 0) {
-    ob_end_flush();
-}
-ob_implicit_flush(true);
 session_start();
-// CSV handling at top
+
+// Optimized CSV Handling Functions
 function readCSV() {
     $attendees = [];
     if (($handle = fopen("data.csv", "r")) !== FALSE) {
-        fgetcsv($handle);
+        fgetcsv($handle); // Skip the header
         while (($data = fgetcsv($handle)) !== FALSE) {
             $attendees[] = [
                 'project_name' => $data[0],
@@ -25,6 +20,29 @@ function readCSV() {
     return $attendees;
 }
 
+function updateCSV($attendee) {
+    $file = 'data.csv';
+    $tempFile = 'data.tmp';
+    $input = fopen($file, 'r');
+    $output = fopen($tempFile, 'w');
+
+    fputcsv($output, fgetcsv($input)); // Copy header row
+
+    while (($data = fgetcsv($input)) !== FALSE) {
+        if ($data[2] === $attendee['id']) {
+            $data[3] = $attendee['present'] ? "1" : "0";
+            $data[4] = $attendee['late'] ? "1" : "0";
+        }
+        fputcsv($output, $data);
+    }
+
+    fclose($input);
+    fclose($output);
+    rename($tempFile, $file);
+    touch('updates.txt'); // Signal update
+}
+
+// Server-Sent Events Endpoint
 if (isset($_GET['sse'])) {
     header('Content-Type: text/event-stream');
     header('Cache-Control: no-cache');
@@ -32,35 +50,26 @@ if (isset($_GET['sse'])) {
 
     $lastUpdate = isset($_SERVER['HTTP_LAST_EVENT_ID']) ? intval($_SERVER['HTTP_LAST_EVENT_ID']) : 0;
 
-    while (true) {
-        clearstatcache();
-        $currentModTime = filemtime('data.csv');
-        
-        // Check if the file has been modified
-        if ($currentModTime > $lastUpdate) {
-            $attendees = readCSV();
-            echo "id: {$currentModTime}\n";
-            echo "data: " . json_encode($attendees) . "\n\n";
-            flush();
-            break;
-        }
-        
-        // Avoid CPU exhaustion
-        sleep(1);
+    clearstatcache();
+    $currentModTime = filemtime('updates.json');
+
+    if ($currentModTime > $lastUpdate) {
+        $attendees = json_decode(file_get_contents('updates.json'), true);
+        echo "id: {$currentModTime}\n";
+        echo "data: " . json_encode($attendees) . "\n\n";
+        flush();
     }
+
     exit();
 }
 
-// Modified AJAX endpoint
-// Replace POST endpoint section
+// AJAX POST Endpoint
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = json_decode(file_get_contents('php://input'), true);
     $attendee = $data['attendee'];
-    
-    // Read current CSV
+
+    // Read and update CSV data
     $attendees = readCSV();
-    
-    // Update specific attendee
     foreach ($attendees as &$existing) {
         if ($existing['id'] === $attendee['id']) {
             $existing['present'] = $attendee['present'];
@@ -68,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             break;
         }
     }
-    
+
     // Write back to CSV
     $fp = fopen('data.csv', 'w');
     fputcsv($fp, ['project_name', 'name', 'ID', 'present', 'late']);
@@ -82,26 +91,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
     }
     fclose($fp);
-    
-    touch('updates.txt');
-    
+
+    // Notify SSE clients about the update
+    file_put_contents('updates.json', json_encode($attendees));
+
     header('Content-Type: application/json');
     echo json_encode(['success' => true, 'attendee' => $attendee]);
     exit;
-}
-
-function checkForNewData() {
-    static $lastCheck = 0;
-    $file = 'updates.txt';
-    
-    if (file_exists($file)) {
-        $currentMod = filemtime($file);
-        if ($currentMod > $lastCheck) {
-            $lastCheck = $currentMod;
-            return json_decode(explode(':', file_get_contents($file), 2)[1], true);
-        }
-    }
-    return false;
 }
 
 $attendees = readCSV();
@@ -122,22 +118,6 @@ $attendees = readCSV();
     <div class="container">
         <input type="text" id="search-bar" class="search-bar" placeholder="Search by Student ID or Name" onkeyup="searchAttendance()">
 
-        <h2>Update Attendance</h2>
-        <form id="attendance-form">
-            <div class="form-group">
-                <input type="text" id="id" placeholder="Student ID" required>
-                <input type="text" id="name" placeholder="Student Name" required>
-                <select id="year" required>
-                    <option value="" disabled selected>Select Year</option>
-                    <option value="Year 1">Year 1</option>
-                    <option value="Year 2">Year 2</option>
-                </select>
-                <button type="submit">Update Attendance</button>
-            </div>
-        </form>
-
-        <div class="divider"></div>
-
         <h2>Attendance List</h2>
         <table>
             <thead>
@@ -145,8 +125,8 @@ $attendees = readCSV();
                     <th>Project Name</th>
                     <th>Name</th>
                     <th>Student ID</th>
-                    <th>Talk 1</th>
-                    <th>Talk 2</th>
+                    <th>Present</th>
+                    <th>Late</th>
                 </tr>
             </thead>
             <tbody id="attendees-list">
@@ -185,51 +165,51 @@ $attendees = readCSV();
         }
 
         document.getElementById('attendees-list').addEventListener('change', function(event) {
-    if (event.target.classList.contains('present-checkbox') || 
-        event.target.classList.contains('late-checkbox')) {
-        
-        const row = event.target.closest('tr');
-        const cells = row.querySelectorAll('td');
-        
-        const attendee = {
-            project_name: cells[0].innerText,
-            name: cells[1].innerText,
-            id: cells[2].innerText,
-            present: cells[3].querySelector('input').checked,
-            late: cells[4].querySelector('input').checked
+            if (event.target.classList.contains('present-checkbox') || 
+                event.target.classList.contains('late-checkbox')) {
+
+                const row = event.target.closest('tr');
+                const cells = row.querySelectorAll('td');
+
+                const attendee = {
+                    project_name: cells[0].innerText,
+                    name: cells[1].innerText,
+                    id: cells[2].innerText,
+                    present: cells[3].querySelector('input').checked,
+                    late: cells[4].querySelector('input').checked
+                };
+
+                fetch(window.location.href, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ attendee })
+                })
+                .then(response => response.json())
+                .then(data => console.log('Updated:', data.attendee.id))
+                .catch(error => console.error('Error:', error));
+            }
+        });
+
+        const eventSource = new EventSource(`${window.location.href}?sse=1`);
+
+        eventSource.onmessage = function (event) {
+            const attendees = JSON.parse(event.data);
+
+            attendees.forEach(attendee => {
+                const row = [...document.querySelectorAll('.attendance-row')].find(
+                    row => row.querySelector('td:nth-child(3)').textContent.trim() === attendee.id
+                );
+
+                if (row) {
+                    row.querySelector('td:nth-child(4) input').checked = attendee.present;
+                    row.querySelector('td:nth-child(5) input').checked = attendee.late;
+                }
+            });
         };
 
-        fetch(window.location.href, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ attendee })
-        })
-        .then(response => response.json())
-        .then(data => console.log('Updated:', data.attendee.id))
-        .catch(error => console.error('Error:', error));
-    }
-});
-// Initialize SSE connection
-const eventSource = new EventSource(`${window.location.href}?sse=1`);
-
-eventSource.onmessage = function (event) {
-    const attendees = JSON.parse(event.data);
-
-    attendees.forEach(attendee => {
-        const row = [...document.querySelectorAll('.attendance-row')].find(
-            row => row.querySelector('td:nth-child(3)').textContent.trim() === attendee.id
-        );
-
-        if (row) {
-            row.querySelector('td:nth-child(4) input').checked = attendee.present;
-            row.querySelector('td:nth-child(5) input').checked = attendee.late;
-        }
-    });
-};
-
-eventSource.onerror = function () {
-    console.error('Error connecting to the SSE server.');
-};
+        eventSource.onerror = function () {
+            console.error('Error connecting to the SSE server.');
+        };
     </script>
 </body>
 </html>
